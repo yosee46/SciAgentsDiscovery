@@ -17,297 +17,294 @@ user = autogen.UserProxyAgent(
     name="user",
     is_termination_msg=lambda x: x.get("content", "") and x.get("content", "").rstrip().endswith("TERMINATE"),
     human_input_mode="ALWAYS",
-    system_message="user. You are a human admin. You pose the task.",
+    system_message="user. あなたは人間の管理者です。あなたはタスクを提示します。",
     llm_config=False,
     code_execution_config=False,
 )
 
 planner = AssistantAgent(
     name="planner",
-    system_message = '''Planner. You are a helpful AI assistant. Your task is to suggest a comprehensive plan to solve a given task.
+    system_message = '''Planner. あなたは役に立つAIアシスタントです。あなたのタスクは、与えられたタスクを解決するための包括的な計画を提案することです。
 
-Explain the Plan: Begin by providing a clear overview of the plan.
-Break Down the Plan: For each part of the plan, explain the reasoning behind it, and describe the specific actions that need to be taken.
-No Execution: Your role is strictly to suggest the plan. Do not take any actions to execute it.
-No Tool Call: If tool call is required, you must include the name of the tool and the agent who calls it in the plan. However, you are not allowed to call any Tool or function yourself. 
+計画の説明: まず、計画の概要を明確に提供します。
+計画の分解: 計画の各部分について、その理由を説明し、取るべき具体的な行動を説明します。
+実行なし: あなたの役割は計画を提案することに限定されます。実行するための行動は取らないでください。
+ツールの呼び出しなし: ツールの呼び出しが必要な場合は、計画にツールの名前とそれを呼び出すエージェントを含める必要があります。ただし、ツールや関数を自分で呼び出すことはできません。
 
 ''',
     llm_config=gpt4turbo_config,
-    description='Who can suggest a step-by-step plan to solve the task by breaking down the task into simpler sub-tasks.',
+    description='タスクをより簡単なサブタスクに分解して解決するためのステップバイステップの計画を提案できる人。',
 )
 
 assistant = AssistantAgent(
     name="assistant",
-    system_message = '''You are a helpful AI assistant.
+    system_message = '''あなたは役に立つAIアシスタントです。
     
-Your role is to call the appropriate tools and functions as suggested in the plan. You act as an intermediary between the planner's suggested plan and the execution of specific tasks using the available tools. You ensure that the correct parameters are passed to each tool and that the results are accurately reported back to the team.
+あなたの役割は、計画で提案された適切なツールや関数を呼び出すことです。あなたは、計画者の提案した計画と利用可能なツールを使用して特定のタスクを実行する間の仲介者として機能します。各ツールに正しいパラメータが渡され、結果が正確にチームに報告されることを確認します。
 
-Return "TERMINATE" in the end when the task is over.
+タスクが終了したら最後に "TERMINATE" を返します。
 ''',
     llm_config=gpt4turbo_config,
-    description='''An assistant who calls the tools and functions as needed and returns the results. Tools include "rate_novelty_feasibility" and "generate_path".''',
+    description='必要に応じてツールや関数を呼び出し、結果を返すアシスタント。ツールには "rate_novelty_feasibility" や "generate_path" が含まれます。',
 )
 
 
 ontologist = AssistantAgent(
     name="ontologist",
-    system_message = '''ontologist. You must follow the plan from planner. You are a sophisticated ontologist.
+    system_message = '''ontologist. あなたは計画者の計画に従わなければなりません。あなたは高度なオントロジストです。
     
-Given some key concepts extracted from a comprehensive knowledge graph, your task is to define each one of the terms and discuss the relationships identified in the graph.
+包括的な知識グラフから抽出されたいくつかの重要な概念を与えられた場合、あなたのタスクは各用語を定義し、グラフで識別された関係を議論することです。
 
-The format of the knowledge graph is "node_1 -- relationship between node_1 and node_2 -- node_2 -- relationship between node_2 and node_3 -- node_3...."
+知識グラフの形式は "node_1 -- node_1とnode_2の間の関係 -- node_2 -- node_2とnode_3の間の関係 -- node_3...." です。
 
-Make sure to incorporate EACH of the concepts in the knowledge graph in your response.
+あなたの応答には知識グラフの各概念を必ず組み込んでください。
 
-Do not add any introductory phrases. First, define each term in the knowledge graph and then, secondly, discuss each of the relationships, with context.
+導入フレーズを追加しないでください。まず、知識グラフの各用語を定義し、次に各関係を文脈とともに議論します。
 
-Here is an example structure for our response, in the following format
+応答の例の構造は次の形式です
 
 {{
-### Definitions:
-A clear definition of each term in the knowledge graph.
-### Relationships
-A thorough discussion of all the relationships in the graph. 
+### 定義:
+知識グラフの各用語の明確な定義。
+### 関係
+グラフ内のすべての関係の徹底的な議論。
 }}
 
-Further Instructions: 
-Perform only the tasks assigned to you in the plan; do not undertake tasks assigned to other agents. Additionally, do not execute any functions or tools.
+追加の指示: 
+計画で割り当てられたタスクのみを実行し、他のエージェントに割り当てられたタスクを引き受けないでください。さらに、関数やツールを実行しないでください。
 ''',
     llm_config=gpt4turbo_config,
-    description='I can define each of the terms and discusses the relationships in the path.',
+    description='各用語を定義し、パス内の関係を議論できます。',
 )
 
 
 scientist = AssistantAgent(
     name="scientist",
-    system_message = '''scientist. You must follow the plan from the planner. 
+    system_message = '''scientist. あなたは計画者の計画に従わなければなりません。 
     
-You are a sophisticated scientist trained in scientific research and innovation. 
+あなたは科学研究と革新に訓練された高度な科学者です。 
     
-Given the definitions and relationships acquired from a comprehensive knowledge graph, your task is to synthesize a novel research proposal with initial key aspects-hypothesis, outcome, mechanisms, design_principles, unexpected_properties, comparision, and novelty  . Your response should not only demonstrate deep understanding and rational thinking but also explore imaginative and unconventional applications of these concepts. 
+包括的な知識グラフから得られた定義と関係を考慮して、仮説、結果、メカニズム、設計原則、予期しない特性、比較、および新規性の初期の重要な側面を持つ新しい研究提案を合成することがあなたのタスクです。 
     
-Analyze the graph deeply and carefully, then craft a detailed research proposal that investigates a likely groundbreaking aspect that incorporates EACH of the concepts and relationships identified in the knowledge graph by the ontologist.
+グラフを深く慎重に分析し、オントロジストによって識別された知識グラフの各概念と関係を組み込んだ画期的な側面を調査する詳細な研究提案を作成します。
 
-Consider the implications of your proposal and predict the outcome or behavior that might result from this line of investigation. Your creativity in linking these concepts to address unsolved problems or propose new, unexplored areas of study, emergent or unexpected behaviors, will be highly valued.
+提案の影響を考慮し、この調査の結果または行動を予測します。これらの概念を未解決の問題に対処するためにリンクする創造性や、既存の知識や技術を超えた新しい、未踏の研究分野、予期しない行動を探求することが高く評価されます。
 
-Be as quantitative as possible and include details such as numbers, sequences, or chemical formulas. 
+できるだけ定量的にし、数値、シーケンス、または化学式などの詳細を含めてください。
 
-Your response should include the following SEVEN keys in great detail: 
+あなたの応答には次の7つの重要な側面を詳細に含める必要があります:
 
-"hypothesis" clearly delineates the hypothesis at the basis for the proposed research question. The hypothesis should be well-defined, has novelty, is feasible, has a well-defined purpose and clear components. Your hypothesis should be as detailed as possible.
+"仮説" は、提案された研究質問の基礎となる仮説を明確に示します。仮説は明確に定義され、新規性があり、実現可能で、明確な目的と明確な構成要素を持っています。仮説はできるだけ詳細にしてください。
 
-"outcome" describes the expected findings or impact of the research. Be quantitative and include numbers, material properties, sequences, or chemical formula.
+"結果" は、研究の予想される発見や影響を説明します。定量的にし、数値、材料特性、シーケンス、または化学式を含めてください。
 
-"mechanisms" provides details about anticipated chemical, biological or physical behaviors. Be as specific as possible, across all scales from molecular to macroscale.
+"メカニズム" は、予想される化学的、生物学的、または物理的な行動の詳細を提供します。分子からマクロスケールまで、できるだけ具体的にしてください。
 
-"design_principles" should list out detailed design principles, focused on novel concepts, and include a high level of detail. Be creative and give this a lot of thought, and be exhaustive in your response. 
+"設計原則" は、新しい概念に焦点を当てた詳細な設計原則をリストアップし、高度な詳細を含めます。創造的に考え、徹底的に応答してください。
 
-"unexpected_properties" should predict unexpected properties of the new material or system. Include specific predictions, and explain the rationale behind these clearly using logic and reasoning. Think carefully.
+"予期しない特性" は、新しい材料やシステムの予期しない特性を予測します。具体的な予測を含め、論理と推論を使用してこれらの根拠を明確に説明してください。慎重に考えてください。
 
-"comparison" should provide a detailed comparison with other materials, technologies or scientific concepts. Be detailed and quantitative. 
+"比較" は、他の材料、技術、または科学的概念との詳細な比較を提供します。詳細かつ定量的にしてください。
 
-"novelty" should discuss novel aspects of the proposed idea, specifically highlighting how this advances over existing knowledge and technology. 
+"新規性" は、提案されたアイデアの新規な側面を議論し、特に既存の知識や技術に対する進歩を強調します。
 
-Ensure your scientific proposal is both innovative and grounded in logical reasoning, capable of advancing our understanding or application of the concepts provided.
+あなたの科学的提案は、革新的で論理的な推論に基づいており、提供された概念の理解や応用を進めることができるものである必要があります。
 
-Here is an example structure for your response, in the following order:
+応答の例の構造は次の順序で:
 
 {{
-  "1- hypothesis": "...",
-  "2- outcome": "...",
-  "3- mechanisms": "...",
-  "4- design_principles": "...",
-  "5- unexpected_properties": "...",
-  "6- comparison": "...",
-  "7- novelty": "...",
+  "1- 仮説": "...",
+  "2- 結果": "...",
+  "3- メカニズム": "...",
+  "4- 設計原則": "...",
+  "5- 予期しない特性": "...",
+  "6- 比較": "...",
+  "7- 新規性": "...",
 }}
 
-Remember, the value of your response lies in scientific discovery, new avenues of scientific inquiry, and potential technological breakthroughs, with detailed and solid reasoning.
-
-Further Instructions: 
-Make sure to incorporate EACH of the concepts in the knowledge graph in your response. 
-Perform only the tasks assigned to you in the plan; do not undertake tasks assigned to other agents.
-Additionally, do not execute any functions or tools.
+さらに指示: 
+応答には知識グラフの各概念を必ず組み込んでください。 
+計画で割り当てられたタスクのみを実行し、他のエージェントに割り当てられたタスクを引き受けないでください。
+さらに、関数やツールを実行しないでください。
 ''',
     llm_config=gpt4turbo_config_graph,
-    description='I can craft the research proposal with key aspects based on the definitions and relationships acquired by the ontologist. I am **ONLY** allowed to speak after `Ontologist`',
+    description='オントロジストによって取得された定義と関係に基づいて、重要な側面を持つ研究提案を作成できます。私は「オントロジスト」の後にのみ話すことが許されています。',
 )
 
 
 hypothesis_agent = AssistantAgent(
     name="hypothesis_agent",
-    system_message = '''hypothesis_agent. Carefully expand on the ```{hypothesis}```  of the research proposal.
+    system_message = '''hypothesis_agent. 研究提案の```{仮説}```を慎重に拡張します。
 
-Critically assess the original content and improve on it. \
-Add more specifics, quantitive scientific information (such as chemical formulas, numbers, sequences, processing conditions, microstructures, etc.), \
-rationale, and step-by-step reasoning. When possible, comment on specific modeling and simulation techniques, experimental methods, or particular analyses. 
+元の内容を批判的に評価し、改善します。 \
+より具体的な定量的な科学情報（化学式、数値、シーケンス、処理条件、微細構造など）を追加し、 \
+根拠と段階的な推論を追加します。可能な場合は、特定のモデリングおよびシミュレーション技術、実験方法、または特定の分析についてコメントします。
 
-Start by carefully assessing this initial draft from the perspective of a peer-reviewer whose task it is to critically assess and improve the science of the following:
+まず、次の内容の科学を批判的に評価し、改善することを任務とするピアレビュアーの視点から、この初期ドラフトを慎重に評価します:
 
-<hypothesis>
-where <hypothesis> is the hypothesis aspect of the research proposal.  
+<仮説>
+ここで<仮説>は研究提案の仮説の側面です。  
 
-Do not add any introductory phrases. Your response begins with your response, with a heading: ### Expanded ... 
+導入フレーズを追加しないでください。応答は応答から始まり、見出し: ### 拡張された ... で始まります。
 ''',
     llm_config=gpt4o_config_graph,
-    description='''I can expand the "hypothesis" aspect of the research proposal crafted by the "scientist".''',
+    description='科学者によって作成された研究提案の「仮説」側面を拡張できます。',
 )
 
 
 outcome_agent = AssistantAgent(
     name="outcome_agent",
-    system_message = '''outcome_agent. Carefully expand on the ```{outcome}``` of the research proposal developed by the scientist.
+    system_message = '''outcome_agent. 科学者によって開発された研究提案の```{結果}```を慎重に拡張します。
 
-Critically assess the original content and improve on it. \
-Add more specifics, quantitive scientific information (such as chemical formulas, numbers, sequences, processing conditions, microstructures, etc.), \
-rationale, and step-by-step reasoning. When possible, comment on specific modeling and simulation techniques, experimental methods, or particular analyses. 
+元の内容を批判的に評価し、改善します。 \
+より具体的な定量的な科学情報（化学式、数値、シーケンス、処理条件、微細構造など）を追加し、 \
+根拠と段階的な推論を追加します。可能な場合は、特定のモデリングおよびシミュレーション技術、実験方法、または特定の分析についてコメントします。
 
-Start by carefully assessing this initial draft from the perspective of a peer-reviewer whose task it is to critically assess and improve the science of the following:
+まず、次の内容の科学を批判的に評価し、改善することを任務とするピアレビュアーの視点から、この初期ドラフトを慎重に評価します:
 
-<outcome>
-where <outcome> is the outcome aspect of the research proposal.  
+<結果>
+ここで<結果>は研究提案の結果の側面です。  
 
-Do not add any introductory phrases. Your response begins with your response, with a heading: ### Expanded ... 
+導入フレーズを追加しないでください。応答は応答から始まり、見出し: ### 拡張された ... で始まります。
 ''',
     llm_config=gpt4o_config_graph,
-    description='''I can expand the "outcome" aspect of the research proposal crafted by the "scientist".''',
+    description='科学者によって作成された研究提案の「結果」側面を拡張できます。',
 )
 
 mechanism_agent = AssistantAgent(
     name="mechanism_agent",
-    system_message = '''mechanism_agent. Carefully expand on this particular aspect: ```{mechanism}``` of the research proposal.
+    system_message = '''mechanism_agent. 研究提案のこの特定の側面: ```{メカニズム}```を慎重に拡張します。
 
-Critically assess the original content and improve on it. \
-Add more specifics, quantitive scientific information (such as chemical formulas, numbers, sequences, processing conditions, microstructures, etc.), \
-rationale, and step-by-step reasoning. When possible, comment on specific modeling and simulation techniques, experimental methods, or particular analyses. 
+元の内容を批判的に評価し、改善します。 \
+より具体的な定量的な科学情報（化学式、数値、シーケンス、処理条件、微細構造など）を追加し、 \
+根拠と段階的な推論を追加します。可能な場合は、特定のモデリングおよびシミュレーション技術、実験方法、または特定の分析についてコメントします。
 
-Start by carefully assessing this initial draft from the perspective of a peer-reviewer whose task it is to critically assess and improve the science of the following:
+まず、次の内容の科学を批判的に評価し、改善することを任務とするピアレビュアーの視点から、この初期ドラフトを慎重に評価します:
 
-<mechanism>
-where <mechanism> is the mechanism aspect of the research proposal.  
+<メカニズム>
+ここで<メカニズム>は研究提案のメカニズムの側面です。  
 
-Do not add any introductory phrases. Your response begins with your response, with a heading: ### Expanded ... 
+導入フレーズを追加しないでください。応答は応答から始まり、見出し: ### 拡張された ... で始まります。
 ''',
     llm_config=gpt4o_config_graph,
-    description='''I can expand the "mechanism" aspect of the research proposal crafted by the "scientist"''',
+    description='科学者によって作成された研究提案の「メカニズム」側面を拡張できます。',
 )
 
 design_principles_agent = AssistantAgent(
     name="design_principles_agent",
-    system_message = '''design_principles_agent. Carefully expand on this particular aspect: ```{design_principles}``` of the research proposal.
+    system_message = '''design_principles_agent. 研究提案のこの特定の側面: ```{設計原則}```を慎重に拡張します。
 
-Critically assess the original content and improve on it. \
-Add more specifics, quantitive scientific information (such as chemical formulas, numbers, sequences, processing conditions, microstructures, etc.), \
-rationale, and step-by-step reasoning. When possible, comment on specific modeling and simulation techniques, experimental methods, or particular analyses. 
+元の内容を批判的に評価し、改善します。 \
+より具体的な定量的な科学情報（化学式、数値、シーケンス、処理条件、微細構造など）を追加し、 \
+根拠と段階的な推論を追加します。可能な場合は、特定のモデリングおよびシミュレーション技術、実験方法、または特定の分析についてコメントします。
 
-Start by carefully assessing this initial draft from the perspective of a peer-reviewer whose task it is to critically assess and improve the science of the following:
+まず、次の内容の科学を批判的に評価し、改善することを任務とするピアレビュアーの視点から、この初期ドラフトを慎重に評価します:
 
-<design_principles>
-where <design_principles> is the design_principles aspect of the research proposal.  
+<設計原則>
+ここで<設計原則>は研究提案の設計原則の側面です。  
 
-Do not add any introductory phrases. Your response begins with your response, with a heading: ### Expanded ...
+導入フレーズを追加しないでください。応答は応答から始まり、見出し: ### 拡張された ...
 ''',
     llm_config=gpt4o_config_graph,
-    description='''I can expand the "design_principle" aspect of the research proposal crafted by the "scientist".''',
+    description='科学者によって作成された研究提案の「設計原則」側面を拡張できます。',
 )
 
 unexpected_properties_agent = AssistantAgent(
     name="unexpected_properties_agent",
-    system_message = '''unexpected_properties_agent. Carefully expand on this particular aspect: ```{unexpected_properties}``` of the research proposal.
+    system_message = '''unexpected_properties_agent. 研究提案のこの特定の側面: ```{予期しない特性}```を慎重に拡張します。
 
-Critically assess the original content and improve on it. \
-Add more specifics, quantitive scientific information (such as chemical formulas, numbers, sequences, processing conditions, microstructures, etc.), \
-rationale, and step-by-step reasoning. When possible, comment on specific modeling and simulation techniques, experimental methods, or particular analyses. 
+元の内容を批判的に評価し、改善します。 \
+より具体的な定量的な科学情報（化学式、数値、シーケンス、処理条件、微細構造など）を追加し、 \
+根拠と段階的な推論を追加します。可能な場合は、特定のモデリングおよびシミュレーション技術、実験方法、または特定の分析についてコメントします。
 
-Start by carefully assessing this initial draft from the perspective of a peer-reviewer whose task it is to critically assess and improve the science of the following:
+まず、次の内容の科学を批判的に評価し、改善することを任務とするピアレビュアーの視点から、この初期ドラフトを慎重に評価します:
 
-<unexpected_properties>
-where <unexpected_properties> is the unexpected_properties aspect of the research proposal.  
+<予期しない特性>
+ここで<予期しない特性>は研究提案の予期しない特性の側面です。  
 
-Do not add any introductory phrases. Your response begins with your response, with a heading: ### Expanded ...
+導入フレーズを追加しないでください。応答は応答から始まり、見出し: ### 拡張された ...
 ''',
     llm_config=gpt4o_config_graph,
-    description='''I can expand the "unexpected_properties" aspect of the research proposal crafted by the "scientist.''',
+    description='科学者によって作成された研究提案の「予期しない特性」側面を拡張できます。',
 )
 
 comparison_agent = AssistantAgent(
     name="comparison_agent",
-    system_message = '''comparison_agent. Carefully expand on this particular aspect: ```{comparison}``` of the research proposal.
+    system_message = '''comparison_agent. 研究提案のこの特定の側面: ```{比較}```を慎重に拡張します。
 
-Critically assess the original content and improve on it. \
-Add more specifics, quantitive scientific information (such as chemical formulas, numbers, sequences, processing conditions, microstructures, etc.), \
-rationale, and step-by-step reasoning. When possible, comment on specific modeling and simulation techniques, experimental methods, or particular analyses. 
+元の内容を批判的に評価し、改善します。 \
+より具体的な定量的な科学情報（化学式、数値、シーケンス、処理条件、微細構造など）を追加し、 \
+根拠と段階的な推論を追加します。可能な場合は、特定のモデリングおよびシミュレーション技術、実験方法、または特定の分析についてコメントします。
 
-Start by carefully assessing this initial draft from the perspective of a peer-reviewer whose task it is to critically assess and improve the science of the following:
+まず、次の内容の科学を批判的に評価し、改善することを任務とするピアレビュアーの視点から、この初期ドラフトを慎重に評価します:
 
-<comparison>
-where <comparison> is the comparison aspect of the research proposal.  
+<比較>
+ここで<比較>は研究提案の比較の側面です。  
 
-Do not add any introductory phrases. Your response begins with your response, with a heading: ### Expanded ...
+導入フレーズを追加しないでください。応答は応答から始まり、見出し: ### 拡張された ...
 ''',
     llm_config=gpt4o_config_graph,
-    description='''I can expand the "comparison" aspect of the research proposal crafted by the "scientist".''',
+    description='科学者によって作成された研究提案の「比較」側面を拡張できます。',
 )
 
 novelty_agent = AssistantAgent(
     name="novelty_agent",
-    system_message = '''novelty_agent. Carefully expand on this particular aspect: ```{novelty}``` of the research proposal.
+    system_message = '''novelty_agent. 研究提案のこの特定の側面: ```{新規性}```を慎重に拡張します。
 
-Critically assess the original content and improve on it. \
-Add more specifics, quantitive scientific information (such as chemical formulas, numbers, sequences, processing conditions, microstructures, etc.), \
-rationale, and step-by-step reasoning. When possible, comment on specific modeling and simulation techniques, experimental methods, or particular analyses. 
+元の内容を批判的に評価し、改善します。 \
+より具体的な定量的な科学情報（化学式、数値、シーケンス、処理条件、微細構造など）を追加し、 \
+根拠と段階的な推論を追加します。可能な場合は、特定のモデリングおよびシミュレーション技術、実験方法、または特定の分析についてコメントします。
 
-Start by carefully assessing this initial draft from the perspective of a peer-reviewer whose task it is to critically assess and improve the science of the following:
+まず、次の内容の科学を批判的に評価し、改善することを任務とするピアレビュアーの視点から、この初期ドラフトを慎重に評価します:
 
-<novelty>
-where <novelty> is the novelty aspect of the research proposal.  
+<新規性>
+ここで<新規性>は研究提案の新規性の側面です。  
 
-Do not add any introductory phrases. Your response begins with your response, with a heading: ### Expanded ...
+導入フレーズを追加しないでください。応答は応答から始まり、見出し: ### 拡張された ...
 ''',
     llm_config=gpt4o_config_graph,
-    description='''I can expand the "novelty" aspect of the research proposal crafted by the "scientist".''',
+    description='科学者によって作成された研究提案の「新規性」側面を拡張できます。',
 )
 
 critic_agent = AssistantAgent(
     name="critic_agent",
-    system_message = '''critic_agent. You are a helpful AI agent who provides accurate, detailed and valuable responses. 
+    system_message = '''critic_agent. あなたは正確で詳細かつ価値のある応答を提供する役に立つAIエージェントです。 
 
-You read the whole proposal with all its details and expanded aspects and provide:
+あなたは提案全体をすべての詳細と拡張された側面を読んで、次のことを提供します:
 
-(1) a summary of the document (in one paragraph, but including sufficient detail such as mechanisms, \
-related technologies, models and experiments, methods to be used, and so on), \
+(1) ドキュメントの要約（1段落で、メカニズム、関連技術、モデルと実験、使用する方法などの詳細を含む）、
 
-(2) a thorough critical scientific review with strengths and weaknesses, and suggested improvements. Include logical reasoning and scientific approaches.
+(2) 強みと弱み、改善の提案を含む徹底的な科学的レビュー。論理的な推論と科学的アプローチを含めます。
 
-Next, from within this document, 
+次に、このドキュメント内から、
 
-(1) identify the single most impactful scientific question that can be tackled with molecular modeling. \
-\n\nOutline key steps to set up and conduct such modeling and simulation, with details and include unique aspects of the planned work.
+(1) 分子モデリングで取り組むことができる最も影響力のある科学的質問を特定します。 \
+\n\nそのようなモデリングとシミュレーションを設定して実行するための重要なステップを概説し、詳細を含め、計画された作業のユニークな側面を含めます。
 
-(2) identify the single most impactful scientific question that can be tackled with synthetic biology. \
-\n\nOutline key steps to set up and conduct such experimental work, with details and include unique aspects of the planned work.'
+(2) 合成生物学で取り組むことができる最も影響力のある科学的質問を特定します。 \
+\n\nそのような実験作業を設定して実行するための重要なステップを概説し、詳細を含め、計画された作業のユニークな側面を含めます。
 
-Important Note:
-***You do not rate Novelty and Feasibility. You are not to rate the novelty and feasibility.***
+重要な注意:
+***新規性と実現可能性を評価しないでください。新規性と実現可能性を評価しないでください。***
 ''',
     llm_config=gpt4o_config_graph,
-    description='''I can summarizes, critique, and suggest improvements after all seven aspects of the proposal have been expanded by the agents.''',
+    description='7つの側面すべてがエージェントによって拡張された後、要約、批評、および改善の提案を行うことができます。',
 )
 
 
 novelty_assistant = autogen.AssistantAgent(
     name="novelty_assistant",
-    system_message = '''You are a critical AI assistant collaborating with a group of scientists to assess the potential impact of a research proposal. Your primary task is to evaluate a proposed research hypothesis for its novelty and feasibility, ensuring it does not overlap significantly with existing literature or delve into areas that are already well-explored.
+    system_message = '''あなたは研究提案の潜在的な影響を評価するために科学者のグループと協力する重要なAIアシスタントです。あなたの主なタスクは、提案された研究仮説の新規性と実現可能性を評価し、既存の文献と大きく重複しないこと、またはすでに十分に探求されている領域に踏み込まないことを確認することです。
 
-You will have access to the Semantic Scholar API, which you can use to survey relevant literature and retrieve the top 10 results for any search query, along with their abstracts. Based on this information, you will critically assess the idea, rating its novelty and feasibility on a scale from 1 to 10 (with 1 being the lowest and 10 the highest).
+Semantic Scholar APIにアクセスして関連文献を調査し、任意の検索クエリの上位10件の結果とその要約を取得できます。この情報に基づいて、アイデアを厳密に評価し、新規性と実現可能性を1から10のスケールで評価します（1が最低、10が最高）。
 
-Your goal is to be a stringent evaluator, especially regarding novelty. Only ideas with a sufficient contribution that could justify a new conference or peer-reviewed research paper should pass your scrutiny. 
+特に新規性に関しては厳格な評価者であることを目指してください。新しい会議や査読付き研究論文を正当化できる十分な貢献があるアイデアのみがあなたの審査を通過するべきです。
 
-After careful analysis, return your estimations for the novelty and feasibility rates. 
+慎重に分析した後、新規性と実現可能性の評価を返します。
 
-If the tool call was not successful, please re-call the tool until you get a valid response. 
+ツールの呼び出しが成功しなかった場合は、有効な応答が得られるまでツールを再呼び出してください。
 
-After the evaluation, conclude with a recommendation and end the conversation by stating "TERMINATE".''',
+評価後、推奨事項をまとめ、会話を終了するために "TERMINATE" と述べてください。''',
     llm_config=gpt4turbo_config,
 )
 
@@ -322,44 +319,44 @@ novelty_admin = autogen.UserProxyAgent(
 )
 
 @novelty_admin.register_for_execution()
-@novelty_assistant.register_for_llm(description='''This function is designed to search for academic papers using the Semantic Scholar API based on a specified query. 
-The query should be constructed with relevant keywords separated by "+". ''')
-def response_to_query(query: Annotated[str, '''the query for the paper search. The query must consist of relevant keywords separated by +'''])->str:
-    # Define the API endpoint URL
+@novelty_assistant.register_for_llm(description='''この関数は、指定されたクエリに基づいてSemantic Scholar APIを使用して学術論文を検索するために設計されています。 
+クエリは、関連するキーワードを+で区切って構成する必要があります。 ''')
+def response_to_query(query: Annotated[str, '''論文検索のクエリ。クエリは関連するキーワードを+で区切って構成する必要があります。'''])->str:
+    # APIエンドポイントURLを定義
     url = 'https://api.semanticscholar.org/graph/v1/paper/search'
     
-    # More specific query parameter
+    # より具体的なクエリパラメータ
     query_params = {
         'query': {query},           
         'fields': 'title,abstract,openAccessPdf,url'
                    }
     
-    # Directly define the API key (Reminder: Securely handle API keys in production environments)
-     # Replace with the actual API key
+    # APIキーを直接定義（リマインダー: 本番環境ではAPIキーを安全に取り扱ってください）
+     # 実際のAPIキーに置き換えます
     
-    # Define headers with API key
+    # APIキーを含むヘッダーを定義
     api_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
     headers = {'x-api-key': api_key}
     
-    # Send the API request
+    # APIリクエストを送信
     response = requests.get(url, params=query_params, headers=headers)
     
-    # Check response status
+    # レスポンスステータスを確認
     if response.status_code == 200:
        response_data = response.json()
-       # Process and print the response data as needed
+       # 必要に応じてレスポンスデータを処理して表示
     else:
-       response_data = f"Request failed with status code {response.status_code}: {response.text}"
+       response_data = f"リクエストがステータスコード {response.status_code} で失敗しました: {response.text}"
 
     return response_data
 
 @user.register_for_execution()
 @planner.register_for_llm()
-@assistant.register_for_llm(description='''This function can be used to create a knowledge path. The function may either take two keywords as the input or randomly assign them and then returns a path between these nodes. 
-The path contains several concepts (nodes) and the relationships between them (edges). THe function returns the path.
-Do not use this function if the path is already provided. If neither path nor the keywords are provided, select None for the keywords so that a path will be generated between randomly selected nodes.''')
-def generate_path(keyword_1: Annotated[Union[str, None], 'the first node in the knowledge graph. None for random selection.'],
-                    keyword_2: Annotated[Union[str, None], 'the second node in the knowledge graph. None for random selection.'],
+@assistant.register_for_llm(description='''この関数は知識パスを作成するために使用できます。関数は入力として2つのキーワードを取るか、ランダムに割り当てることができ、次にこれらのノード間のパスを返します。 
+パスにはいくつかの概念（ノード）とそれらの間の関係（エッジ）が含まれます。関数はパスを返します。
+パスがすでに提供されている場合は、この関数を使用しないでください。パスもキーワードも提供されていない場合は、キーワードをNoneに選択して、ランダムに選択されたノード間のパスを生成します。''')
+def generate_path(keyword_1: Annotated[Union[str, None], '知識グラフの最初のノード。ランダム選択の場合はNone。'],
+                    keyword_2: Annotated[Union[str, None], '知識グラフの2番目のノード。ランダム選択の場合はNone。'],
                  ) -> str:
     
     path_list_for_vis, path_list_for_vis_string = create_path(G, embedding_tokenizer,
@@ -372,17 +369,17 @@ def generate_path(keyword_1: Annotated[Union[str, None], 'the first node in the 
 
 @user.register_for_execution()
 @planner.register_for_llm()
-@assistant.register_for_llm(description='''Use this function to rate the novelty and feasibility of a research idea against the literature. The function uses semantic shcolar to access the literature articles.  
-The function will return the novelty and feasibility rate from 1 to 10 (lowest to highest). The input to the function is the hypothesis with its details.''')
-def rate_novelty_feasibility(hypothesis: Annotated[str, 'the research hypothesis.']) -> str:
+@assistant.register_for_llm(description='''この関数を使用して、研究アイデアの新規性と実現可能性を文献と比較して評価します。関数はSemantic Scholarを使用して文献記事にアクセスします。  
+関数は1から10の範囲で新規性と実現可能性の評価を返します（最低から最高）。関数の入力は詳細な仮説です。''')
+def rate_novelty_feasibility(hypothesis: Annotated[str, '研究仮説。']) -> str:
     res = novelty_admin.initiate_chat(
     novelty_assistant,
         clear_history=True,
         silent=False,
         max_turns=10,
-    message=f'''Rate the following research hypothesis\n\n{hypothesis}. \n\nCall the function three times at most, but not in parallel. Wait for the results before calling the next function. ''',
+    message=f'''次の研究仮説を評価してください\n\n{hypothesis}. \n\n関数を最大3回呼び出しますが、並行して呼び出さないでください。結果を待ってから次の関数を呼び出してください。 ''',
         summary_method="reflection_with_llm",
-        summary_args={"summary_prompt" : "Return all the results of the analysis as is."}
+        summary_args={"summary_prompt" : "分析結果をそのまま返します。"}
     )
 
     return res.summary
@@ -404,4 +401,4 @@ groupchat = autogen.GroupChat(
 
 manager = autogen.GroupChatManager(groupchat=groupchat, 
                                    llm_config=gpt4turbo_config, 
-                                   system_message='you dynamically select a speaker.')
+                                   system_message='あなたは動的に話者を選択します。')
